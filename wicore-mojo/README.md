@@ -100,11 +100,327 @@ cd wicore-mojo
 chmod +x scripts/setup.sh
 ./scripts/setup.sh
 
-# 3. 激活 Python 环境
-source venv/bin/activate
+# 3. 验证环境安装
+pixi run python scripts/test_engine.py
 
-# 4. 运行测试验证
-python scripts/test_engine.py
+# 4. 下载模型（详见模型下载指南）
+# 5. 构建项目
+# 6. 启动引擎
+```
+
+## 🚀 完整部署指南
+
+### 第一步：环境搭建
+
+1. **克隆项目仓库**
+```bash
+# 克隆项目到本地
+git clone <repository_url>
+cd wicore-mojo
+
+# 检查项目结构
+ls -la
+# 应该看到: src/ scripts/ configs/ docs/ README.md 等目录和文件
+```
+
+2. **运行自动环境搭建**
+```bash
+# 给脚本执行权限
+chmod +x scripts/setup.sh
+
+# 运行环境搭建脚本（自动安装所有依赖）
+./scripts/setup.sh
+
+# 脚本会自动执行以下操作：
+# - 检测系统环境（GPU、操作系统）
+# - 安装 Pixi 包管理器
+# - 配置必要的软件包渠道
+# - 安装 Modular 平台和 MAX Engine
+# - 安装 Python 依赖（PyTorch、Transformers 等）
+# - 创建项目配置文件
+# - 验证安装完整性
+```
+
+3. **验证环境搭建结果**
+```bash
+# 运行环境测试脚本
+pixi run python scripts/test_engine.py
+
+# 期望输出：
+# 🔧 测试环境配置...
+# ✅ PyTorch: x.x.x
+# ✅ Transformers: x.x.x
+# ✅ FastAPI: x.x.x
+# ...
+# 🎉 所有测试通过！WiCore 环境配置成功
+```
+
+### 第二步：下载模型
+
+1. **安装模型下载工具**
+```bash
+# 安装 Hugging Face Hub（如果尚未安装）
+pixi add huggingface-hub
+```
+
+2. **下载 Gemma-3-27B 模型**
+```bash
+# 创建模型目录
+mkdir -p models
+cd models
+
+# 使用 Python 脚本下载模型
+pixi run python -c "
+from huggingface_hub import snapshot_download
+import os
+
+print('🚀 开始下载 Gemma-3-27B 模型...')
+print('📦 模型大小约 54GB，请耐心等待...')
+
+# 创建模型目录
+os.makedirs('gemma-3-27b-it', exist_ok=True)
+
+# 下载模型文件（支持断点续传）
+snapshot_download(
+    repo_id='google/gemma-2-27b-it',
+    cache_dir='./cache',
+    local_dir='./gemma-3-27b-it', 
+    local_dir_use_symlinks=False,
+    resume_download=True
+)
+
+print('✅ 模型下载完成！')
+"
+
+# 返回项目根目录
+cd ..
+```
+
+3. **验证模型下载完整性**
+```bash
+# 创建并运行模型验证脚本
+cat > verify_model_temp.py << 'EOF'
+import os
+import json
+from pathlib import Path
+
+def verify_gemma_model(model_path):
+    model_path = Path(model_path)
+    print(f"🔍 验证模型目录: {model_path}")
+    
+    # 检查关键文件
+    required_files = [
+        'config.json',
+        'model.safetensors.index.json', 
+        'tokenizer.json',
+        'tokenizer_config.json'
+    ]
+    
+    for file in required_files:
+        if not (model_path / file).exists():
+            print(f"❌ 缺少关键文件: {file}")
+            return False
+    
+    # 检查模型大小
+    total_size = sum(f.stat().st_size for f in model_path.rglob('*') if f.is_file())
+    total_size_gb = total_size / (1024**3)
+    print(f"📊 模型总大小: {total_size_gb:.1f} GB")
+    
+    if total_size_gb < 50:
+        print("⚠️  模型大小异常，可能下载不完整")
+        return False
+    
+    print("✅ 模型验证通过")
+    return True
+
+verify_gemma_model("models/gemma-3-27b-it")
+EOF
+
+pixi run python verify_model_temp.py
+rm verify_model_temp.py
+
+# 期望输出：
+# 🔍 验证模型目录: models/gemma-3-27b-it
+# 📊 模型总大小: 54.x GB
+# ✅ 模型验证通过
+```
+
+### 第三步：构建项目
+
+1. **检查构建脚本**
+```bash
+# 查看构建脚本内容
+ls -la scripts/
+cat scripts/build.sh
+
+# 给构建脚本执行权限（如果需要）
+chmod +x scripts/build.sh
+```
+
+2. **运行项目构建**
+```bash
+# 执行构建脚本
+pixi run ./scripts/build.sh
+
+# 构建过程包括：
+# - 编译 Mojo 源代码
+# - 优化模型加载路径
+# - 生成运行时配置
+# - 准备推理引擎组件
+
+# 期望输出：
+# 🏗️  构建 WiCore Mojo 推理引擎...
+# ✅ Mojo 代码编译完成
+# ✅ 模型配置生成完成
+# ✅ 项目构建成功
+```
+
+3. **验证构建结果**
+```bash
+# 检查构建产物
+ls -la build/
+ls -la src/
+
+# 应该看到编译后的文件和配置
+```
+
+### 第四步：启动推理引擎
+
+1. **配置运行环境**
+```bash
+# 检查配置文件
+cat configs/production.json
+
+# 根据实际硬件情况调整配置（可选）
+# 例如：修改 GPU 设置、内存限制等
+```
+
+2. **启动 WiCore 推理引擎**
+```bash
+# 启动推理引擎
+pixi run python src/wicore_engine.py
+
+# 或者使用配置文件启动
+pixi run python src/wicore_engine.py --config configs/production.json
+
+# 期望输出：
+# 🚀 WiCore Mojo 推理引擎启动中...
+# 🔧 初始化设备管理器...
+# ✅ 发现 2 个 GPU 设备
+# 🧠 加载 Gemma-3-27B 模型...
+# ✅ 模型加载完成 (54.2GB)
+# 🌐 启动 Web 服务器...
+# ✅ 服务器运行在 http://localhost:8000
+```
+
+3. **验证引擎运行状态**
+```bash
+# 在新的终端窗口中测试 API
+curl http://localhost:8000/health
+
+# 期望输出：
+# {"status": "healthy", "version": "1.0.0"}
+
+# 测试推理接口
+curl -X POST http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gemma-3-27b-it",
+    "messages": [{"role": "user", "content": "你好"}],
+    "max_tokens": 100
+  }'
+
+# 期望输出：
+# {"choices": [{"message": {"content": "你好！我是..."}}]}
+```
+
+### 第五步：使用和测试
+
+1. **运行完整测试套件**
+```bash
+# 运行功能测试
+pixi run python scripts/test_engine.py
+
+# 运行性能基准测试
+pixi run python scripts/benchmark.py --config configs/production.json
+
+# 运行压力测试（可选）
+pixi run python scripts/stress_test.py --concurrent 8 --duration 60
+```
+
+2. **监控系统状态**
+```bash
+# 查看系统状态
+curl http://localhost:8000/status
+
+# 查看GPU使用情况
+nvidia-smi
+
+# 查看内存使用
+free -h
+
+# 查看进程状态
+ps aux | grep wicore
+```
+
+### 完整部署命令汇总
+
+以下是从零开始的完整命令序列：
+
+```bash
+# 1. 环境搭建
+git clone <repository_url>
+cd wicore-mojo
+chmod +x scripts/setup.sh
+./scripts/setup.sh
+
+# 2. 验证环境
+pixi run python scripts/test_engine.py
+
+# 3. 下载模型
+mkdir -p models && cd models
+pixi run python -c "
+from huggingface_hub import snapshot_download
+snapshot_download('google/gemma-2-27b-it', local_dir='./gemma-3-27b-it', local_dir_use_symlinks=False)
+"
+cd ..
+
+# 4. 构建项目
+pixi run ./scripts/build.sh
+
+# 5. 启动引擎
+pixi run python src/wicore_engine.py
+
+# 6. 测试服务（新终端）
+curl http://localhost:8000/health
+```
+
+### 故障排除
+
+如果在任何步骤遇到问题：
+
+1. **环境搭建失败**
+```bash
+# 清理并重新安装
+rm -rf .pixi
+pixi install
+./scripts/setup.sh
+```
+
+2. **模型下载失败**
+```bash
+# 使用镜像站下载
+cd models
+git clone https://modelscope.cn/google/gemma-2-27b-it.git gemma-3-27b-it
+```
+
+3. **引擎启动失败**
+```bash
+# 检查日志
+tail -f logs/wicore.log
+
+# 检查配置
+pixi run python -c "import json; print(json.load(open('configs/production.json')))"
 ```
 
 ### 生产环境部署
