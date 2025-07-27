@@ -110,10 +110,9 @@ python scripts/test_engine.py
 ### 生产环境部署
 
 ```bash
-# 1. 下载 Gemma-3-27B 模型
+# 1. 下载 Gemma-3-27B 模型（详见下方模型下载指南）
 mkdir -p models
-cd models
-# 下载模型文件到此目录
+# 按照模型下载指南下载模型文件
 
 # 2. 配置生产环境
 cp configs/development.json configs/production.json
@@ -122,6 +121,233 @@ cp configs/development.json configs/production.json
 # 3. 启动推理引擎
 ./scripts/start_engine.sh --config configs/production.json
 ```
+
+## 📦 模型下载指南
+
+### 支持的模型
+
+WiCore 目前主要支持以下模型：
+
+| 模型名称 | 参数量 | 存储空间 | 推荐硬件 | 状态 |
+|---------|-------|----------|----------|------|
+| Gemma-3-27B-IT | 27B | ~54GB | T10 双卡 | ✅ 主要支持 |
+| Gemma-3-9B-IT | 9B | ~18GB | T10 单卡 | 🔄 开发中 |
+| Llama-3.1-8B | 8B | ~16GB | T10 单卡 | 🔄 开发中 |
+
+### 方法一：使用 Hugging Face Hub（推荐）
+
+```bash
+# 安装 huggingface-hub
+pixi add huggingface-hub
+
+# 下载 Gemma-3-27B-IT 模型
+cd models
+pixi run python -c "
+from huggingface_hub import snapshot_download
+import os
+
+# 创建模型目录
+os.makedirs('gemma-3-27b-it', exist_ok=True)
+
+# 下载模型文件
+snapshot_download(
+    repo_id='google/gemma-2-27b-it',
+    cache_dir='./cache',
+    local_dir='./gemma-3-27b-it',
+    local_dir_use_symlinks=False,
+    resume_download=True
+)
+
+print('✅ 模型下载完成')
+"
+```
+
+### 方法二：使用 Git LFS
+
+```bash
+# 安装 Git LFS
+sudo apt install git-lfs  # Ubuntu/Debian
+# 或 brew install git-lfs  # macOS
+
+# 初始化 Git LFS
+git lfs install
+
+# 克隆模型仓库
+cd models
+git clone https://huggingface.co/google/gemma-2-27b-it gemma-3-27b-it
+
+# 验证下载完整性
+cd gemma-3-27b-it
+git lfs ls-files  # 查看 LFS 文件列表
+```
+
+### 方法三：手动下载（适用于离线环境）
+
+如果无法直接访问 Hugging Face，可以通过以下方式获取模型：
+
+1. **通过镜像站下载**：
+```bash
+# 使用国内镜像（如 ModelScope）
+cd models
+git clone https://modelscope.cn/google/gemma-2-27b-it.git gemma-3-27b-it
+```
+
+2. **分块下载**：
+```bash
+# 使用 wget 分块下载（适用于网络不稳定的情况）
+cd models/gemma-3-27b-it
+wget -c https://huggingface.co/google/gemma-2-27b-it/resolve/main/model-00001-of-00109.safetensors
+wget -c https://huggingface.co/google/gemma-2-27b-it/resolve/main/model-00002-of-00109.safetensors
+# ... 继续下载所有分片文件
+```
+
+### 模型文件结构验证
+
+下载完成后，验证模型文件结构：
+
+```bash
+cd models/gemma-3-27b-it
+ls -la
+
+# 期望的文件结构：
+# config.json                    # 模型配置
+# generation_config.json         # 生成配置  
+# model-00001-of-00109.safetensors  # 模型权重（分片1）
+# model-00002-of-00109.safetensors  # 模型权重（分片2）
+# ...
+# model-00109-of-00109.safetensors  # 模型权重（分片109）
+# model.safetensors.index.json    # 权重索引
+# special_tokens_map.json         # 特殊token映射
+# tokenizer.json                  # 分词器
+# tokenizer_config.json          # 分词器配置
+```
+
+### 验证模型完整性
+
+运行以下脚本验证模型文件完整性：
+
+```bash
+# 创建验证脚本
+cat > verify_model.py << 'EOF'
+import os
+import json
+from pathlib import Path
+
+def verify_gemma_model(model_path):
+    """验证 Gemma 模型文件完整性"""
+    model_path = Path(model_path)
+    
+    # 必需文件列表
+    required_files = [
+        'config.json',
+        'generation_config.json', 
+        'model.safetensors.index.json',
+        'special_tokens_map.json',
+        'tokenizer.json',
+        'tokenizer_config.json'
+    ]
+    
+    print(f"🔍 验证模型目录: {model_path}")
+    
+    # 检查必需文件
+    missing_files = []
+    for file in required_files:
+        if not (model_path / file).exists():
+            missing_files.append(file)
+    
+    if missing_files:
+        print(f"❌ 缺少文件: {missing_files}")
+        return False
+    
+    # 检查权重文件
+    try:
+        with open(model_path / 'model.safetensors.index.json', 'r') as f:
+            index = json.load(f)
+        
+        weight_files = set(index['weight_map'].values())
+        
+        missing_weights = []
+        for weight_file in weight_files:
+            if not (model_path / weight_file).exists():
+                missing_weights.append(weight_file)
+        
+        if missing_weights:
+            print(f"❌ 缺少权重文件: {missing_weights[:5]}...")  # 只显示前5个
+            return False
+        
+        print(f"✅ 找到 {len(weight_files)} 个权重文件")
+        
+    except Exception as e:
+        print(f"❌ 验证权重文件时出错: {e}")
+        return False
+    
+    # 计算总大小
+    total_size = sum(f.stat().st_size for f in model_path.rglob('*') if f.is_file())
+    total_size_gb = total_size / (1024**3)
+    
+    print(f"📊 模型总大小: {total_size_gb:.1f} GB")
+    
+    if total_size_gb < 50:  # Gemma-3-27B 应该大约 54GB
+        print("⚠️  模型大小异常，可能下载不完整")
+        return False
+    
+    print("✅ 模型验证通过")
+    return True
+
+if __name__ == "__main__":
+    model_path = "gemma-3-27b-it"
+    verify_gemma_model(model_path)
+EOF
+
+# 运行验证
+pixi run python verify_model.py
+```
+
+### 存储空间要求
+
+**磁盘空间建议**：
+- **Gemma-3-27B**: 至少 60GB 可用空间（模型 54GB + 缓存 6GB）
+- **系统总计**: 建议 100GB+ 自由空间用于运行时缓存
+
+**存储性能建议**：
+- 生产环境：NVMe SSD（读取速度 >3GB/s）
+- 开发环境：普通 SSD 即可
+- 避免使用机械硬盘（HDD）
+
+### 环境变量配置
+
+下载完成后，设置模型路径：
+
+```bash
+# 在 ~/.bashrc 或 ~/.zshrc 中添加
+export WICORE_MODEL_PATH="/path/to/models/gemma-3-27b-it"
+
+# 或在项目配置文件中设置
+echo '{
+  "model_path": "models/gemma-3-27b-it",
+  "model_name": "gemma-3-27b-it"
+}' > configs/model_config.json
+```
+
+### 常见问题
+
+**Q: 下载速度太慢怎么办？**
+A: 
+1. 使用国内镜像站（ModelScope）
+2. 使用断点续传工具（wget -c）
+3. 考虑在网络好的环境下载后传输
+
+**Q: 磁盘空间不足怎么办？**
+A:
+1. 使用符号链接将模型放在大容量磁盘上
+2. 考虑使用较小的模型（Gemma-3-9B）
+3. 清理不必要的缓存文件
+
+**Q: 模型验证失败怎么办？**
+A:
+1. 重新下载缺失的文件
+2. 检查网络连接和存储设备
+3. 对比 SHA256 校验和
 
 ## 🚀 使用指南
 

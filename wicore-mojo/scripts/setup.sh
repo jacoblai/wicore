@@ -56,16 +56,24 @@ else
     echo "✅ Pixi 已安装"
 fi
 
-# 配置 Pixi 默认渠道（包含 Modular 渠道）
+# 配置 Pixi 默认渠道（包含 Modular 和 PyTorch 渠道）
 echo "⚙️  配置 Pixi 默认渠道..."
 mkdir -p "$HOME/.pixi"
-echo 'default-channels = ["https://conda.modular.com/max-nightly", "conda-forge"]' > "$HOME/.pixi/config.toml"
+echo 'default-channels = ["https://conda.modular.com/max-nightly", "conda-forge", "pytorch"]' > "$HOME/.pixi/config.toml"
 echo "✅ Pixi 渠道配置完成"
 
 # 初始化 WiCore 项目
 echo "🏗️  初始化 WiCore 项目..."
 if [ ! -f "pixi.toml" ]; then
-    pixi init . --name wicore-mojo
+    pixi init .
+    
+    # 设置项目名称和渠道配置（编辑 pixi.toml 文件）
+    if [ -f "pixi.toml" ]; then
+        sed -i 's/name = ".*"/name = "wicore-mojo"/' pixi.toml
+        # 确保包含所有必要的渠道
+        sed -i 's/channels = \[.*\]/channels = ["https:\/\/conda.modular.com\/max-nightly", "conda-forge", "pytorch"]/' pixi.toml
+    fi
+    
     echo "✅ 项目初始化完成"
 else
     echo "✅ 项目已存在"
@@ -80,46 +88,119 @@ pixi add "modular=*" "python==3.11" || {
 
 # 安装 Python 依赖
 echo "📦 安装 Python 依赖..."
-pixi add torch torchvision torchaudio transformers accelerate
-pixi add fastapi uvicorn pydantic
-pixi add numpy pandas psutil requests
-pixi add matplotlib seaborn
+echo "   正在安装 PyTorch..."
+pixi add conda-forge::pytorch conda-forge::torchvision conda-forge::torchaudio || {
+    echo "⚠️  PyTorch 安装失败，尝试从默认渠道..."
+    pixi add pytorch torchvision torchaudio
+}
+
+echo "   正在安装 AI/ML 库..."
+pixi add transformers accelerate || {
+    echo "⚠️  部分 AI/ML 库安装失败，继续安装其他依赖..."
+}
+
+echo "   正在安装 Web 框架..."
+pixi add fastapi uvicorn pydantic || {
+    echo "⚠️  Web 框架安装失败，继续安装其他依赖..."
+}
+
+echo "   正在安装基础工具..."
+pixi add numpy pandas psutil requests || {
+    echo "⚠️  部分基础工具安装失败，继续安装其他依赖..."
+}
+
+echo "   正在安装可视化工具..."
+pixi add matplotlib seaborn || {
+    echo "⚠️  可视化工具安装失败，将在验证阶段检查..."
+}
 
 echo "✅ 依赖安装完成"
 
-# 验证 Modular 安装
-echo "🧪 验证 Modular 安装..."
-pixi run python -c "
-import sys
-print(f'Python 版本: {sys.version}')
+# 验证安装
+echo "🧪 验证环境安装..."
 
+# 创建临时验证脚本
+cat > verify_install.py << 'EOF'
+import sys
+print('Python 版本:', sys.version)
+
+# 验证结果统计
+success_count = 0
+total_checks = 0
+
+# 检查 Modular
 try:
-    # 检查 Modular 是否可用
     import subprocess
-    result = subprocess.run(['modular', '--version'], capture_output=True, text=True)
+    result = subprocess.run(['modular', '--version'], capture_output=True, text=True, timeout=10)
     if result.returncode == 0:
-        print(f'✅ Modular 版本: {result.stdout.strip()}')
+        print('✅ Modular 版本:', result.stdout.strip())
+        success_count += 1
     else:
         print('⚠️  Modular 命令行工具未正确安装')
+    total_checks += 1
 except Exception as e:
-    print(f'⚠️  Modular 验证异常: {e}')
+    print('⚠️  Modular 验证异常:', str(e))
+    total_checks += 1
 
-# 检查基础 Python 包
+# 检查 PyTorch
 try:
     import torch
-    print(f'✅ PyTorch 版本: {torch.__version__}')
-    print(f'✅ CUDA 可用: {torch.cuda.is_available()}')
+    print('✅ PyTorch 版本:', torch.__version__)
+    print('✅ CUDA 可用:', torch.cuda.is_available())
     if torch.cuda.is_available():
-        print(f'✅ GPU 数量: {torch.cuda.device_count()}')
-except ImportError:
-    print('❌ PyTorch 未正确安装')
+        print('✅ GPU 数量:', torch.cuda.device_count())
+    success_count += 1
+except ImportError as e:
+    print('❌ PyTorch 未正确安装:', str(e))
+except Exception as e:
+    print('⚠️  PyTorch 验证异常:', str(e))
+total_checks += 1
 
-try:
-    import transformers
-    print(f'✅ Transformers 版本: {transformers.__version__}')
-except ImportError:
-    print('❌ Transformers 未正确安装')
-"
+# 检查其他关键包
+packages_to_check = [
+    ('transformers', 'Transformers'),
+    ('accelerate', 'Accelerate'),
+    ('fastapi', 'FastAPI'),
+    ('uvicorn', 'Uvicorn'),
+    ('pydantic', 'Pydantic'),
+    ('numpy', 'NumPy'),
+    ('pandas', 'Pandas'),
+    ('requests', 'Requests'),
+    ('matplotlib', 'Matplotlib'),
+    ('seaborn', 'Seaborn')
+]
+
+for package_name, display_name in packages_to_check:
+    try:
+        module = __import__(package_name)
+        version = getattr(module, '__version__', 'unknown')
+        print('✅', display_name + ':', version)
+        success_count += 1
+    except ImportError:
+        print('⚠️ ', display_name, '未安装')
+    except Exception as e:
+        print('⚠️ ', display_name, '验证异常:', str(e))
+    total_checks += 1
+
+# 输出验证结果
+print()
+print('📊 验证结果:', str(success_count) + '/' + str(total_checks), '个组件成功安装')
+if success_count >= total_checks * 0.8:  # 80% 成功率
+    print('✅ 环境基本配置成功')
+    exit(0)
+elif success_count >= total_checks * 0.6:  # 60% 成功率
+    print('⚠️  环境部分配置成功，可以继续但可能有些功能受限')
+    exit(0)
+else:
+    print('❌ 环境配置存在较多问题，建议重新安装')
+    exit(1)
+EOF
+
+# 运行验证脚本
+pixi run python verify_install.py
+
+# 清理临时文件
+rm -f verify_install.py
 
 # 创建环境配置
 echo "⚙️  创建环境配置..."
@@ -603,6 +684,13 @@ echo "   - pixi run <command>    # 在环境中运行命令"
 echo "   - pixi shell           # 进入环境 shell"
 echo "   - pixi add <package>   # 添加包"
 echo "   - pixi update          # 更新包"
+echo ""
+echo "🔧 故障排除:"
+echo "   如果安装过程中遇到问题，可以尝试:"
+echo "   - 清理环境: rm -rf .pixi && pixi install"
+echo "   - 更新 Pixi: curl -fsSL https://pixi.sh/install.sh | bash"
+echo "   - 检查网络: ping conda.modular.com"
+echo "   - 手动添加包: pixi add conda-forge::<package>"
 echo ""
 echo "📚 文档位置:"
 echo "   - API 文档: docs/API.md"

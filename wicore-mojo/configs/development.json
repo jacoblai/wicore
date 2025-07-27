@@ -1,0 +1,23 @@
+{
+    "model_path": "models/gemma-3-27b-it",
+    "server_port": 8000,
+    "max_batch_size": 8,
+    "max_context_length": 32768,
+    "gpu_memory_limit_gb": 8.0,
+    "enable_multi_gpu": false,
+    "target_devices": ["cpu:0"],
+    "simulation_mode": true,
+    "hmt_config": {
+        "enable_a2cr": true,
+        "nvme_cache_path": "./cache",
+        "time_decay_factor": 0.05,
+        "attention_weight": 0.4,
+        "frequency_weight": 0.3,
+        "recency_weight": 0.3
+    },
+    "logging": {
+        "level": "DEBUG",
+        "enable_request_logging": true,
+        "enable_performance_logging": true
+    }
+}

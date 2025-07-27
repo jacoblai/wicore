@@ -1,0 +1,31 @@
+{
+    "model_path": "models/gemma-3-27b-it",
+    "server_port": 8000,
+    "max_batch_size": 16,
+    "max_context_length": 131072,
+    "gpu_memory_limit_gb": 15.0,
+    "enable_multi_gpu": true,
+    "target_devices": ["gpu:0", "gpu:1"],
+    "hmt_config": {
+        "enable_a2cr": true,
+        "nvme_cache_path": "/tmp/wicore_cache",
+        "time_decay_factor": 0.05,
+        "attention_weight": 0.4,
+        "frequency_weight": 0.3,
+        "recency_weight": 0.3,
+        "max_cache_size_gb": 100
+    },
+    "performance_config": {
+        "enable_batching": true,
+        "batch_timeout_ms": 50,
+        "max_concurrent_requests": 32,
+        "request_timeout_seconds": 30,
+        "enable_streaming": true
+    },
+    "logging": {
+        "level": "INFO",
+        "enable_request_logging": true,
+        "enable_performance_logging": true,
+        "log_file": "logs/wicore.log"
+    }
+}
