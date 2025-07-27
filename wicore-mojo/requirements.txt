@@ -1,0 +1,37 @@
+# WiCore Mojo 推理引擎生产环境依赖
+
+# 核心 AI 框架
+torch>=2.0.0
+torchvision>=0.15.0  
+torchaudio>=2.0.0
+transformers>=4.35.0
+accelerate>=0.24.0
+
+# Web 服务框架
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.0.0
+
+# 数据处理
+numpy>=1.24.0
+pandas>=2.0.0
+
+# 系统监控
+psutil>=5.9.0
+
+# 模型优化
+bitsandbytes>=0.41.0
+optimum>=1.14.0
+
+# HTTP 客户端
+httpx>=0.25.0
+
+# 日志和配置
+loguru>=0.7.0
+pyyaml>=6.0
+
+# 性能分析
+py-spy>=0.3.14
+
+# GPU 监控
+pynvml>=11.5.0 
