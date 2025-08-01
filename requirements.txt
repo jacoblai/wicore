@@ -1,37 +1,22 @@
-# WiCore Mojo 推理引擎生产环境依赖
+# WiCore HMT推理引擎 - 生产环境依赖
+# 版本已在CUDA 12.1 + PyTorch 2.4.0环境验证通过
 
-# 核心 AI 框架
-torch>=2.0.0
-torchvision>=0.15.0  
-torchaudio>=2.0.0
-transformers>=4.35.0
-accelerate>=0.24.0
+# 核心深度学习框架
+torch==2.4.0
+transformers==4.54.1
+accelerate==0.28.0
+numpy==2.2.6
 
-# Web 服务框架
-fastapi>=0.104.0
-uvicorn[standard]>=0.24.0
-pydantic>=2.0.0
+# API服务框架
+fastapi==0.116.1
+uvicorn==0.35.0
+pydantic==2.11.7
 
-# 数据处理
-numpy>=1.24.0
-pandas>=2.0.0
-
-# 系统监控
+# 系统工具
 psutil>=5.9.0
-
-# 模型优化
-bitsandbytes>=0.41.0
-optimum>=1.14.0
-
-# HTTP 客户端
-httpx>=0.25.0
-
-# 日志和配置
-loguru>=0.7.0
 pyyaml>=6.0
+tqdm>=4.66.0
 
-# 性能分析
-py-spy>=0.3.14
-
-# GPU 监控
-pynvml>=11.5.0 
+# 可选优化依赖（根据需要安装）
+# bitsandbytes>=0.41.0   # INT4/INT8量化支持
+# modelscope>=1.11.0     # 魔塔社区模型下载 

@@ -1,863 +1,221 @@
-# WiCore Mojo 推理引擎
+# WiCore HMT推理引擎
 
-🚀 **基于 Mojo 语言的自主可控高性能 AI 推理引擎**
+<div align="center">
 
-WiCore 是专为中国算力受限环境设计的异构硬件统一调度推理平台，集成了 HMT 分层内存管理和 MoR 动态路由技术，支持千亿参数模型的高效推理。
+🧠 **支持千亿模型单卡部署的分层内存管理推理引擎**
 
-## 🎯 核心特性
+[![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://python.org)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.4.0-orange.svg)](https://pytorch.org)
+[![CUDA](https://img.shields.io/badge/CUDA-12.1-green.svg)](https://developer.nvidia.com/cuda-toolkit)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-### 技术优势
-- **🔒 自主可控**: 摆脱 NVIDIA TensorRT 依赖，避免技术封锁风险
-- **🌐 硬件无关**: 支持所有 GPU 品牌（NVIDIA、AMD、Intel、国产等）
-- **⚡ 极致性能**: Mojo 68,000x Python 性能，原生硬件编译优化
-- **🧠 智能调度**: HMT 三级存储 + A²CR 缓存算法 + MoR 动态路由
-- **🔌 生态兼容**: 100% Python 兼容，OpenAI API 标准接口
+</div>
 
-### 目标性能 (T10 双卡)
-- **吞吐量**: 100-150 tokens/s
-- **延迟**: 50-100ms (首 token)
-- **并发**: 16-32 并发请求
-- **内存利用率**: >85%
+## 🌟 核心特性
 
-## 🏗️ 系统架构
+### 🚀 **HMT (Hierarchical Memory Tiering) 分层内存管理**
+集成2024-2025最新内存优化技术，支持千亿模型单卡部署：
 
-```
-┌─────────────────────────────────────────┐
-│           WiCore Mojo Engine            │
-├─────────────────────────────────────────┤
-│  Web API Layer (FastAPI/Mojo)          │
-├─────────────────────────────────────────┤
-│  Request Orchestrator (Mojo)           │
-├─────────────────────────────────────────┤
-│  Compute Scheduler (MAX Engine)        │
-├─────────────────────────────────────────┤
-│ ┌─────────┐ ┌─────────┐ ┌─────────┐     │
-│ │Compute  │ │Compute  │ │Compute  │     │
-│ │Node 1   │ │Node 2   │ │Node N   │     │
-│ │(GPU/CPU)│ │(GPU/CPU)│ │(...)    │     │
-│ └─────────┘ └─────────┘ └─────────┘     │
-├─────────────────────────────────────────┤
-│  HMT Memory Manager (Mojo + MAX)       │
-├─────────────────────────────────────────┤
-│  Hardware Abstraction Layer (MAX)      │
-├─────────────────────────────────────────┤
-│ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐         │
-│ │T10#1│ │T10#2│ │ CPU │ │ ... │         │
-│ └─────┘ └─────┘ └─────┘ └─────┘         │
-└─────────────────────────────────────────┘
-```
+- **🔄 MiniKV**: 2位量化KV缓存 (ArXiv 2411.18077)
+- **🏗️ LaCache**: 3层阶梯形缓存结构 (ArXiv 2507.14204)  
+- **🎯 HeadInfer**: 头级别KV缓存offloading (ArXiv 2502.12574)
+- **🎵 SYMPHONY**: 多轮交互优化 (ArXiv 2412.16434)
+- **📦 vTensor**: GPU虚拟内存管理 (ArXiv 2407.15309)
+- **🧩 Jenga**: 异构嵌入内存分配 (ArXiv 2503.18292)
 
-### 核心组件
+### 💻 **生产特性**
+- ✅ 单GPU 16GB内存支持7B-70B模型
+- ✅ FastAPI异步API服务
+- ✅ 流式推理支持
+- ✅ 多模型动态加载
+- ✅ 详细性能监控和日志
 
-1. **设备管理器** (`device_manager.mojo`)
-   - 异构硬件设备发现和抽象
-   - 设备拓扑构建和带宽优化
-   - NUMA 感知的设备绑定
+## 📋 环境要求
 
-2. **HMT 分层内存管理器** (`hmt_memory_manager.mojo`)
-   - GPU 显存 → CPU 内存 → NVMe 存储三级缓存
-   - A²CR (Attention-Aware Cache Replacement) 智能置换算法
-   - 零拷贝内存池和异步数据迁移
+### 硬件要求
+- **GPU**: NVIDIA GPU with 16GB+ VRAM (推荐RTX 4090/A100)
+- **内存**: 32GB+ 系统内存
+- **存储**: 100GB+ 可用空间
 
-3. **模型执行器** (`model_executor.mojo`)
-   - Gemma-3-27B 模型加载和推理
-   - MoR (Mixture of Routers) 动态路由
-   - 多 GPU 协调和批处理优化
+### 软件环境
+- **操作系统**: Linux (推荐Ubuntu 20.04+)
+- **Python**: 3.8+
+- **CUDA**: 12.1+ 
+- **驱动**: NVIDIA Driver 530+
 
-4. **请求调度器** (`request_scheduler.mojo`)
-   - 优先级队列和智能批处理
-   - 异步执行和负载均衡
-   - 超时处理和错误恢复
+## 🛠️ 快速开始
 
-5. **Web 服务器** (`web_server.mojo`)
-   - OpenAI 兼容 API 接口
-   - 流式输出和健康监控
-   - 高并发请求处理
-
-## 🛠️ 安装指南
-
-### 系统要求
-
-**开发环境** (macOS/Linux):
-- Python 3.8+
-- 8GB+ RAM
-- 支持模拟模式开发
-
-**生产环境** (Linux):
-- NVIDIA T10 双卡 (或其他 GPU)
-- 64GB+ RAM
-- NVMe SSD
-- Modular SDK + MAX Engine
-
-### 快速安装
+### 1️⃣ 环境安装
 
 ```bash
-# 1. 克隆项目
-git clone <repository_url>
-cd wicore-mojo
+# 克隆项目
+git clone <repository-url>
+cd wicore
 
-# 2. 运行环境搭建脚本
-chmod +x scripts/setup.sh
-./scripts/setup.sh
+# 安装依赖 (使用阿里云镜像)
+pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
 
-# 3. 验证环境安装
-pixi run python scripts/test_engine.py
-
-# 4. 下载模型（详见模型下载指南）
-# 5. 构建项目
-# 6. 启动引擎
+# 可选：安装量化支持
+pip install bitsandbytes -i https://mirrors.aliyun.com/pypi/simple/
 ```
 
-## 🚀 完整部署指南
+### 2️⃣ 模型下载
 
-### 第一步：环境搭建
+使用内置脚本下载Qwen2.5-7B模型：
 
-1. **克隆项目仓库**
 ```bash
-# 克隆项目到本地
-git clone <repository_url>
-cd wicore-mojo
+# 从ModelScope下载 (推荐国内用户)
+python3 download_qwen_simple.py
 
-# 检查项目结构
-ls -la
-# 应该看到: src/ scripts/ configs/ docs/ README.md 等目录和文件
+# 下载完成后模型将位于: models/Qwen2.5-7B-Instruct/
 ```
 
-2. **运行自动环境搭建**
+### 3️⃣ 启动服务
+
 ```bash
-# 给脚本执行权限
-chmod +x scripts/setup.sh
+# 使用生产配置启动
+python3 -m wicore --config configs/production.yaml
 
-# 运行环境搭建脚本（自动安装所有依赖）
-./scripts/setup.sh
-
-# 脚本会自动执行以下操作：
-# - 检测系统环境（GPU、操作系统）
-# - 安装 Pixi 包管理器
-# - 配置必要的软件包渠道
-# - 安装 Modular 平台和 MAX Engine
-# - 安装 Python 依赖（PyTorch、Transformers 等）
-# - 创建项目配置文件
-# - 验证安装完整性
+# 服务启动后访问: http://localhost:8000
 ```
 
-3. **验证环境搭建结果**
+### 4️⃣ API使用
+
 ```bash
-# 运行环境测试脚本
-pixi run python scripts/test_engine.py
-
-# 期望输出：
-# 🔧 测试环境配置...
-# ✅ PyTorch: x.x.x
-# ✅ Transformers: x.x.x
-# ✅ FastAPI: x.x.x
-# ...
-# 🎉 所有测试通过！WiCore 环境配置成功
-```
-
-### 第二步：下载模型
-
-1. **安装模型下载工具**
-```bash
-# 安装 Hugging Face Hub（如果尚未安装）
-pixi add huggingface-hub
-```
-
-2. **下载 Gemma-3-27B 模型**
-```bash
-# 创建模型目录
-mkdir -p models
-cd models
-
-# 使用 Python 脚本下载模型
-pixi run python -c "
-from huggingface_hub import snapshot_download
-import os
-
-print('🚀 开始下载 Gemma-3-27B 模型...')
-print('📦 模型大小约 54GB，请耐心等待...')
-
-# 创建模型目录
-os.makedirs('gemma-3-27b-it', exist_ok=True)
-
-# 下载模型文件（支持断点续传）
-snapshot_download(
-    repo_id='google/gemma-2-27b-it',
-    cache_dir='./cache',
-    local_dir='./gemma-3-27b-it', 
-    local_dir_use_symlinks=False,
-    resume_download=True
-)
-
-print('✅ 模型下载完成！')
-"
-
-# 返回项目根目录
-cd ..
-```
-
-3. **验证模型下载完整性**
-```bash
-# 创建并运行模型验证脚本
-cat > verify_model_temp.py << 'EOF'
-import os
-import json
-from pathlib import Path
-
-def verify_gemma_model(model_path):
-    model_path = Path(model_path)
-    print(f"🔍 验证模型目录: {model_path}")
-    
-    # 检查关键文件
-    required_files = [
-        'config.json',
-        'model.safetensors.index.json', 
-        'tokenizer.json',
-        'tokenizer_config.json'
-    ]
-    
-    for file in required_files:
-        if not (model_path / file).exists():
-            print(f"❌ 缺少关键文件: {file}")
-            return False
-    
-    # 检查模型大小
-    total_size = sum(f.stat().st_size for f in model_path.rglob('*') if f.is_file())
-    total_size_gb = total_size / (1024**3)
-    print(f"📊 模型总大小: {total_size_gb:.1f} GB")
-    
-    if total_size_gb < 50:
-        print("⚠️  模型大小异常，可能下载不完整")
-        return False
-    
-    print("✅ 模型验证通过")
-    return True
-
-verify_gemma_model("models/gemma-3-27b-it")
-EOF
-
-pixi run python verify_model_temp.py
-rm verify_model_temp.py
-
-# 期望输出：
-# 🔍 验证模型目录: models/gemma-3-27b-it
-# 📊 模型总大小: 54.x GB
-# ✅ 模型验证通过
-```
-
-### 第三步：构建项目
-
-1. **检查构建脚本**
-```bash
-# 查看构建脚本内容
-ls -la scripts/
-cat scripts/build.sh
-
-# 给构建脚本执行权限（如果需要）
-chmod +x scripts/build.sh
-```
-
-2. **运行项目构建**
-```bash
-# 执行构建脚本
-pixi run ./scripts/build.sh
-
-# 构建过程包括：
-# - 编译 Mojo 源代码
-# - 优化模型加载路径
-# - 生成运行时配置
-# - 准备推理引擎组件
-
-# 期望输出：
-# 🏗️  构建 WiCore Mojo 推理引擎...
-# ✅ Mojo 代码编译完成
-# ✅ 模型配置生成完成
-# ✅ 项目构建成功
-```
-
-3. **验证构建结果**
-```bash
-# 检查构建产物
-ls -la build/
-ls -la src/
-
-# 应该看到编译后的文件和配置
-```
-
-### 第四步：启动推理引擎
-
-1. **配置运行环境**
-```bash
-# 检查配置文件
-cat configs/production.json
-
-# 根据实际硬件情况调整配置（可选）
-# 例如：修改 GPU 设置、内存限制等
-```
-
-2. **启动 WiCore 推理引擎**
-```bash
-# 启动推理引擎
-pixi run python src/wicore_engine.py
-
-# 或者使用配置文件启动
-pixi run python src/wicore_engine.py --config configs/production.json
-
-# 期望输出：
-# 🚀 WiCore Mojo 推理引擎启动中...
-# 🔧 初始化设备管理器...
-# ✅ 发现 2 个 GPU 设备
-# 🧠 加载 Gemma-3-27B 模型...
-# ✅ 模型加载完成 (54.2GB)
-# 🌐 启动 Web 服务器...
-# ✅ 服务器运行在 http://localhost:8000
-```
-
-3. **验证引擎运行状态**
-```bash
-# 在新的终端窗口中测试 API
-curl http://localhost:8000/health
-
-# 期望输出：
-# {"status": "healthy", "version": "1.0.0"}
-
-# 测试推理接口
-curl -X POST http://localhost:8000/v1/chat/completions \
+# 测试API
+curl -X POST "http://localhost:8000/v1/chat/completions" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "gemma-3-27b-it",
-    "messages": [{"role": "user", "content": "你好"}],
-    "max_tokens": 100
-  }'
-
-# 期望输出：
-# {"choices": [{"message": {"content": "你好！我是..."}}]}
-```
-
-### 第五步：使用和测试
-
-1. **运行完整测试套件**
-```bash
-# 运行功能测试
-pixi run python scripts/test_engine.py
-
-# 运行性能基准测试
-pixi run python scripts/benchmark.py --config configs/production.json
-
-# 运行压力测试（可选）
-pixi run python scripts/stress_test.py --concurrent 8 --duration 60
-```
-
-2. **监控系统状态**
-```bash
-# 查看系统状态
-curl http://localhost:8000/status
-
-# 查看GPU使用情况
-nvidia-smi
-
-# 查看内存使用
-free -h
-
-# 查看进程状态
-ps aux | grep wicore
-```
-
-### 完整部署命令汇总
-
-以下是从零开始的完整命令序列：
-
-```bash
-# 1. 环境搭建
-git clone <repository_url>
-cd wicore-mojo
-chmod +x scripts/setup.sh
-./scripts/setup.sh
-
-# 2. 验证环境
-pixi run python scripts/test_engine.py
-
-# 3. 下载模型
-mkdir -p models && cd models
-pixi run python -c "
-from huggingface_hub import snapshot_download
-snapshot_download('google/gemma-2-27b-it', local_dir='./gemma-3-27b-it', local_dir_use_symlinks=False)
-"
-cd ..
-
-# 4. 构建项目
-pixi run ./scripts/build.sh
-
-# 5. 启动引擎
-pixi run python src/wicore_engine.py
-
-# 6. 测试服务（新终端）
-curl http://localhost:8000/health
-```
-
-### 故障排除
-
-如果在任何步骤遇到问题：
-
-1. **环境搭建失败**
-```bash
-# 清理并重新安装
-rm -rf .pixi
-pixi install
-./scripts/setup.sh
-```
-
-2. **模型下载失败**
-```bash
-# 使用镜像站下载
-cd models
-git clone https://modelscope.cn/google/gemma-2-27b-it.git gemma-3-27b-it
-```
-
-3. **引擎启动失败**
-```bash
-# 检查日志
-tail -f logs/wicore.log
-
-# 检查配置
-pixi run python -c "import json; print(json.load(open('configs/production.json')))"
-```
-
-### 生产环境部署
-
-```bash
-# 1. 下载 Gemma-3-27B 模型（详见下方模型下载指南）
-mkdir -p models
-# 按照模型下载指南下载模型文件
-
-# 2. 配置生产环境
-cp configs/development.json configs/production.json
-# 编辑 production.json 设置 GPU 配置
-
-# 3. 启动推理引擎
-./scripts/start_engine.sh --config configs/production.json
-```
-
-## 📦 模型下载指南
-
-### 支持的模型
-
-WiCore 目前主要支持以下模型：
-
-| 模型名称 | 参数量 | 存储空间 | 推荐硬件 | 状态 |
-|---------|-------|----------|----------|------|
-| Gemma-3-27B-IT | 27B | ~54GB | T10 双卡 | ✅ 主要支持 |
-| Gemma-3-9B-IT | 9B | ~18GB | T10 单卡 | 🔄 开发中 |
-| Llama-3.1-8B | 8B | ~16GB | T10 单卡 | 🔄 开发中 |
-
-### 方法一：使用 Hugging Face Hub（推荐）
-
-```bash
-# 安装 huggingface-hub
-pixi add huggingface-hub
-
-# 下载 Gemma-3-27B-IT 模型
-cd models
-pixi run python -c "
-from huggingface_hub import snapshot_download
-import os
-
-# 创建模型目录
-os.makedirs('gemma-3-27b-it', exist_ok=True)
-
-# 下载模型文件
-snapshot_download(
-    repo_id='google/gemma-2-27b-it',
-    cache_dir='./cache',
-    local_dir='./gemma-3-27b-it',
-    local_dir_use_symlinks=False,
-    resume_download=True
-)
-
-print('✅ 模型下载完成')
-"
-```
-
-### 方法二：使用 Git LFS
-
-```bash
-# 安装 Git LFS
-sudo apt install git-lfs  # Ubuntu/Debian
-# 或 brew install git-lfs  # macOS
-
-# 初始化 Git LFS
-git lfs install
-
-# 克隆模型仓库
-cd models
-git clone https://huggingface.co/google/gemma-2-27b-it gemma-3-27b-it
-
-# 验证下载完整性
-cd gemma-3-27b-it
-git lfs ls-files  # 查看 LFS 文件列表
-```
-
-### 方法三：手动下载（适用于离线环境）
-
-如果无法直接访问 Hugging Face，可以通过以下方式获取模型：
-
-1. **通过镜像站下载**：
-```bash
-# 使用国内镜像（如 ModelScope）
-cd models
-git clone https://modelscope.cn/google/gemma-2-27b-it.git gemma-3-27b-it
-```
-
-2. **分块下载**：
-```bash
-# 使用 wget 分块下载（适用于网络不稳定的情况）
-cd models/gemma-3-27b-it
-wget -c https://huggingface.co/google/gemma-2-27b-it/resolve/main/model-00001-of-00109.safetensors
-wget -c https://huggingface.co/google/gemma-2-27b-it/resolve/main/model-00002-of-00109.safetensors
-# ... 继续下载所有分片文件
-```
-
-### 模型文件结构验证
-
-下载完成后，验证模型文件结构：
-
-```bash
-cd models/gemma-3-27b-it
-ls -la
-
-# 期望的文件结构：
-# config.json                    # 模型配置
-# generation_config.json         # 生成配置  
-# model-00001-of-00109.safetensors  # 模型权重（分片1）
-# model-00002-of-00109.safetensors  # 模型权重（分片2）
-# ...
-# model-00109-of-00109.safetensors  # 模型权重（分片109）
-# model.safetensors.index.json    # 权重索引
-# special_tokens_map.json         # 特殊token映射
-# tokenizer.json                  # 分词器
-# tokenizer_config.json          # 分词器配置
-```
-
-### 验证模型完整性
-
-运行以下脚本验证模型文件完整性：
-
-```bash
-# 创建验证脚本
-cat > verify_model.py << 'EOF'
-import os
-import json
-from pathlib import Path
-
-def verify_gemma_model(model_path):
-    """验证 Gemma 模型文件完整性"""
-    model_path = Path(model_path)
-    
-    # 必需文件列表
-    required_files = [
-        'config.json',
-        'generation_config.json', 
-        'model.safetensors.index.json',
-        'special_tokens_map.json',
-        'tokenizer.json',
-        'tokenizer_config.json'
-    ]
-    
-    print(f"🔍 验证模型目录: {model_path}")
-    
-    # 检查必需文件
-    missing_files = []
-    for file in required_files:
-        if not (model_path / file).exists():
-            missing_files.append(file)
-    
-    if missing_files:
-        print(f"❌ 缺少文件: {missing_files}")
-        return False
-    
-    # 检查权重文件
-    try:
-        with open(model_path / 'model.safetensors.index.json', 'r') as f:
-            index = json.load(f)
-        
-        weight_files = set(index['weight_map'].values())
-        
-        missing_weights = []
-        for weight_file in weight_files:
-            if not (model_path / weight_file).exists():
-                missing_weights.append(weight_file)
-        
-        if missing_weights:
-            print(f"❌ 缺少权重文件: {missing_weights[:5]}...")  # 只显示前5个
-            return False
-        
-        print(f"✅ 找到 {len(weight_files)} 个权重文件")
-        
-    except Exception as e:
-        print(f"❌ 验证权重文件时出错: {e}")
-        return False
-    
-    # 计算总大小
-    total_size = sum(f.stat().st_size for f in model_path.rglob('*') if f.is_file())
-    total_size_gb = total_size / (1024**3)
-    
-    print(f"📊 模型总大小: {total_size_gb:.1f} GB")
-    
-    if total_size_gb < 50:  # Gemma-3-27B 应该大约 54GB
-        print("⚠️  模型大小异常，可能下载不完整")
-        return False
-    
-    print("✅ 模型验证通过")
-    return True
-
-if __name__ == "__main__":
-    model_path = "gemma-3-27b-it"
-    verify_gemma_model(model_path)
-EOF
-
-# 运行验证
-pixi run python verify_model.py
-```
-
-### 存储空间要求
-
-**磁盘空间建议**：
-- **Gemma-3-27B**: 至少 60GB 可用空间（模型 54GB + 缓存 6GB）
-- **系统总计**: 建议 100GB+ 自由空间用于运行时缓存
-
-**存储性能建议**：
-- 生产环境：NVMe SSD（读取速度 >3GB/s）
-- 开发环境：普通 SSD 即可
-- 避免使用机械硬盘（HDD）
-
-### 环境变量配置
-
-下载完成后，设置模型路径：
-
-```bash
-# 在 ~/.bashrc 或 ~/.zshrc 中添加
-export WICORE_MODEL_PATH="/path/to/models/gemma-3-27b-it"
-
-# 或在项目配置文件中设置
-echo '{
-  "model_path": "models/gemma-3-27b-it",
-  "model_name": "gemma-3-27b-it"
-}' > configs/model_config.json
-```
-
-### 常见问题
-
-**Q: 下载速度太慢怎么办？**
-A: 
-1. 使用国内镜像站（ModelScope）
-2. 使用断点续传工具（wget -c）
-3. 考虑在网络好的环境下载后传输
-
-**Q: 磁盘空间不足怎么办？**
-A:
-1. 使用符号链接将模型放在大容量磁盘上
-2. 考虑使用较小的模型（Gemma-3-9B）
-3. 清理不必要的缓存文件
-
-**Q: 模型验证失败怎么办？**
-A:
-1. 重新下载缺失的文件
-2. 检查网络连接和存储设备
-3. 对比 SHA256 校验和
-
-## 🚀 使用指南
-
-### API 接口
-
-WiCore 提供 OpenAI 兼容的 REST API：
-
-```bash
-# 聊天完成
-curl -X POST http://localhost:8000/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "gemma-3-27b-it",
-    "messages": [
-      {"role": "user", "content": "解释量子计算的基本原理"}
-    ],
+    "messages": [{"role": "user", "content": "你好，请介绍一下人工智能"}],
     "max_tokens": 512,
     "temperature": 0.7
   }'
-
-# 健康检查
-curl http://localhost:8000/health
-
-# 系统状态
-curl http://localhost:8000/status
 ```
 
-### Python 客户端
+## ⚙️ 配置文件
 
-```python
-import requests
+### 生产配置 (`configs/production.yaml`)
+完整的HMT生产环境配置，启用所有内存优化技术：
 
-def chat_with_wicore(message: str) -> str:
-    response = requests.post("http://localhost:8000/v1/chat/completions", 
-        json={
-            "model": "gemma-3-27b-it",
-            "messages": [{"role": "user", "content": message}],
-            "max_tokens": 512
-        })
-    
-    return response.json()["choices"][0]["message"]["content"]
+```yaml
+# 模型配置
+model:
+  model_path: "models/Qwen2.5-7B-Instruct"
+  model_type: "qwen"
+  device_map: "cuda:0"
+  torch_dtype: "float16"
 
-# 使用示例
-result = chat_with_wicore("你好，请介绍一下你自己")
-print(result)
+# HMT内存管理
+hmt:
+  enable_hmt: true
+  enable_minikv: true      # 2位量化缓存
+  enable_lacache: true     # 阶梯形缓存
+  enable_head_offload: true # 头级别offloading
+  enable_symphony: true    # 多轮优化
+  enable_vtensor: true     # 虚拟内存
+  enable_jenga: true       # 异构分配
 ```
 
-## 📊 性能调优
+### 示例配置 (`configs/qwen25_7b.yaml`)
+针对Qwen2.5-7B优化的示例配置。
 
-### HMT 内存管理配置
+## 🔬 HMT技术验证
 
-```json
-{
-  "hmt_config": {
-    "enable_a2cr": true,
-    "nvme_cache_path": "/nvme/wicore_cache",
-    "time_decay_factor": 0.05,
-    "attention_weight": 0.4,
-    "frequency_weight": 0.3,
-    "recency_weight": 0.3
-  }
-}
-```
-
-### MoR 动态路由配置
-
-```json
-{
-  "mor_config": {
-    "enable_mor_routing": true,
-    "routing_threshold": 0.5,
-    "cpu_depth": 8,
-    "gpu_depth": 32
-  }
-}
-```
-
-## 🧪 测试和验证
-
-### 开发环境测试
+运行完整的HMT验证测试：
 
 ```bash
-# 运行完整测试套件
-python scripts/test_engine.py
-
-# 单独测试组件
-python scripts/test_device_manager.py
-python scripts/test_memory_manager.py
-python scripts/test_model_executor.py
+python3 test_hmt_validation.py
 ```
 
-### 生产环境基准测试
+验证报告将显示所有HMT技术的运行状态：
 
+```
+🔬 HMT核心技术验证:
+   分层内存管理: ✅ 验证通过
+   MiniKV量化缓存: ✅ 验证通过  
+   LaCache阶梯缓存: ✅ 验证通过
+   HeadInfer offloading: ✅ 验证通过
+   SYMPHONY多轮优化: ✅ 验证通过
+   vTensor虚拟内存: ✅ 验证通过
+   Jenga异构分配: ✅ 验证通过
+```
+
+## 📊 性能监控
+
+### 内存监控
 ```bash
-# 性能基准测试
-python scripts/benchmark.py --config configs/production.json
+# GPU内存使用情况
+nvidia-smi
 
-# 压力测试
-python scripts/stress_test.py --concurrent 32 --duration 300
-
-# 内存泄漏检测
-python scripts/memory_leak_test.py --iterations 1000
+# 系统内存监控
+htop
 ```
 
-## 📁 项目结构
+### API统计
+访问 `http://localhost:8000/stats` 查看详细性能统计。
 
-```
-wicore-mojo/
-├── src/                           # Mojo 源代码
-│   ├── wicore_engine.mojo        # 主引擎
-│   ├── device_manager.mojo       # 设备管理
-│   ├── hmt_memory_manager.mojo   # HMT 内存管理
-│   ├── model_executor.mojo       # 模型执行
-│   ├── request_scheduler.mojo    # 请求调度
-│   └── web_server.mojo          # Web 服务
-├── simulation/                   # 模拟环境
-│   └── max_simulation.py        # MAX Engine 模拟
-├── scripts/                     # 脚本工具
-│   ├── setup.sh                # 环境搭建
-│   ├── test_engine.py          # 测试脚本
-│   └── benchmark.py            # 性能测试
-├── configs/                    # 配置文件
-│   ├── development.json       # 开发配置
-│   └── production.json        # 生产配置
-├── models/                    # 模型文件
-│   └── gemma-3-27b-it/       # Gemma-3 模型
-├── docs/                     # 文档
-└── requirements.txt          # Python 依赖
+## 🚧 故障排除
+
+### 常见问题
+
+**Q: 模型加载失败 "CUDA out of memory"**
+```bash
+# 启用INT4量化
+pip install bitsandbytes
+# 在配置文件中设置: enable_quantization: true
 ```
 
-## 🛡️ 技术方案
+**Q: 依赖安装失败**
+```bash
+# 使用阿里云镜像
+pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
+```
 
-### 关键技术决策
+**Q: NCCL错误**
+```bash
+# 重新安装PyTorch
+pip uninstall torch torchvision torchaudio
+pip install torch==2.4.0 torchvision torchaudio -i https://mirrors.aliyun.com/pypi/simple/
+```
 
-1. **Mojo 语言选择**
-   - 68,000x Python 性能提升
-   - 原生硬件编译优化
-   - Python 生态完全兼容
+### 日志查看
+```bash
+# 查看运行日志
+tail -f logs/wicore.log
 
-2. **HMT 分层内存管理**
-   - GPU 显存：热数据 FP16 存储
-   - CPU 内存：温数据 Q8_K 量化
-   - NVMe 存储：冷数据 Q4_K 压缩
+# 查看HMT验证报告
+cat logs/hmt_validation_report.json
+```
 
-3. **A²CR 缓存算法**
-   - 注意力感知的智能置换
-   - 时间衰减 + 频率统计
-   - 动态阈值自适应调整
+## 📚 技术文档
 
-4. **MoR 动态路由**
-   - 轻量级路由决策 (<3μs)
-   - 重要 token → GPU 深度计算
-   - 普通 token → CPU 浅层处理
+- [HMT技术设计](hmt.md) - 分层内存管理技术详解
+- [核心架构设计](WICORE_MOJO_DESIGN.md) - 系统架构文档
 
-### 风险控制
+## 🤝 支持的模型
 
-- **技术风险**: 保持 Python 兼容性，渐进式 Mojo 采用
-- **性能风险**: 早期验证，多后端支持
-- **硬件风险**: 分层支持，CPU fallback 机制
+当前支持的模型系列：
+- **Qwen2.5** (7B/14B/32B/72B)
+- **Llama3.1/3.2** (8B/70B/405B)  
+- **Gemma2/3** (2B/9B/27B)
+- **其他Transformer架构模型**
 
-## 🤝 贡献指南
+## 🎯 设计目标
 
-1. Fork 项目仓库
-2. 创建功能分支 (`git checkout -b feature/amazing-feature`)
-3. 提交更改 (`git commit -m 'Add amazing feature'`)
-4. 推送到分支 (`git push origin feature/amazing-feature`)
-5. 创建 Pull Request
+WiCore致力于实现：
+- 🚀 千亿模型单卡部署
+- 💾 128K上下文支持
+- ⚡ 毫秒级推理延迟
+- 🔋 最优内存利用率
 
 ## 📄 许可证
 
-本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件
-
-## 🎯 路线图
-
-### Phase 1: 基础验证 ✅
-- [x] Mojo 环境搭建
-- [x] 模拟环境开发
-- [x] 核心组件实现
-- [x] 集成测试验证
-
-### Phase 2: 生产就绪 🔄
-- [ ] GPU 服务器部署
-- [ ] Gemma-3-27B 模型加载
-- [ ] T10 双卡性能优化
-- [ ] 稳定性测试
-
-### Phase 3: 扩展支持 📋
-- [ ] 多模型支持
-- [ ] 国产硬件适配
-- [ ] 云原生部署
-- [ ] 监控告警系统
+MIT License - 详见 [LICENSE](LICENSE) 文件
 
 ---
 
-**🎉 WiCore Mojo 推理引擎 - 自主可控的 AI 推理未来** 
+<div align="center">
 
-如有问题或建议，请创建 Issue 或联系开发团队。 
+**🌟 如果此项目对您有帮助，请给我们一个Star！ 🌟**
+
+</div>

@@ -1,0 +1,112 @@
+# WiCore HMT推理引擎 - 生产环境配置
+# 支持千亿模型单卡部署与128K上下文，集成2024-2025最新内存优化技术
+
+# 服务器配置
+server:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 1
+
+# 模型配置
+model:
+  model_path: "models/Qwen2.5-7B-Instruct"
+  model_type: "qwen"
+  device_map: "cuda:0"
+  torch_dtype: "float16"
+  max_tokens: 2048
+  temperature: 0.7
+  top_p: 0.9
+  top_k: 50
+  max_batch_size: 4
+  trust_remote_code: true
+
+# HMT内存管理（完整验证版本）
+hmt:
+  enable_hmt: true
+  
+  # 🧠 1. 分层内存管理 (GPU→CPU→NVMe)
+  memory_pools:
+    gpu:
+      initial_size_gb: 8.0
+      max_size_gb: 14.0
+      growth_factor: 1.5
+    cpu:
+      initial_size_gb: 4.0
+      max_size_gb: 8.0
+      growth_factor: 1.2
+    nvme:
+      initial_size_gb: 2.0
+      max_size_gb: 16.0
+      growth_factor: 1.0
+  
+  # 🔄 2. MiniKV: 2位量化KV缓存
+  enable_minikv: true
+  minikv_quantization_bits: 2
+  minikv_compression_ratio: 0.25
+  
+  # 🏗️ 3. LaCache: 阶梯形缓存结构
+  enable_lacache: true
+  lacache_levels: 3
+  lacache_l1_size_mb: 512
+  lacache_l2_size_mb: 2048
+  lacache_l3_size_mb: 8192
+  
+  # 🎯 4. HeadInfer: 头级别offloading
+  enable_head_offload: true
+  head_offload_ratio: 0.3
+  head_offload_threshold_mb: 1024
+  
+  # 🎵 5. SYMPHONY: 多轮交互优化
+  enable_symphony: true
+  symphony_window_size: 8
+  symphony_cache_size_mb: 1024
+  symphony_prefetch_rounds: 3
+  
+  # 📦 6. vTensor: GPU虚拟内存管理
+  enable_vtensor: true
+  vtensor_page_size_mb: 64
+  vtensor_swap_threshold: 0.8
+  vtensor_prefetch_pages: 4
+  
+  # 🧩 7. Jenga: 异构嵌入内存分配
+  enable_jenga: true
+  jenga_embedding_cache_mb: 512
+  jenga_allocation_strategy: "heterogeneous"
+  jenga_gpu_embedding_ratio: 0.7
+  
+  # 💾 缓存策略
+  cache_strategy: "lacache"
+  max_cache_entries: 2048
+  cache_warmup_enabled: true
+  
+  # ⚡ 预取设置
+  enable_prefetch: true
+  prefetch_size: 4
+  prefetch_threads: 2
+  
+  # 📊 内存监控和优化
+  memory_monitoring_interval_ms: 100
+  auto_memory_optimization: true
+  memory_pressure_threshold: 0.85
+  emergency_offload_threshold: 0.95
+  
+  # 🔧 线程池配置
+  memory_pool_threads: 4
+  offload_threads: 2
+  
+  # 📈 性能调优
+  enable_async_offload: true
+  enable_memory_prefusion: true
+  enable_gradient_checkpointing: true
+
+# MoR路由（简化版本）
+mor:
+  enable_mor: false
+
+# 性能监控
+performance:
+  enable_monitoring: true
+  
+# 注意力机制
+attention:
+  enable_kv_cache: true
